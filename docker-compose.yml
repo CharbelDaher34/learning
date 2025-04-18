@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mlpipeline
+      POSTGRES_USER: mluser
+      POSTGRES_PASSWORD: mlpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  metaflow:
+    image: metaflow/metaflow-service:2.11.2
+    environment:
+      METAFLOW_SERVICE_URL: http://metaflow:8080
+      METAFLOW_DEFAULT_DATASTORE: s3
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  mlflow:
+    build: .
+    command: mlflow server --host 0.0.0.0 --port 5000
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+
+  fastapi:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://mluser:mlpassword@postgres:5432/mlpipeline
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      METAFLOW_SERVICE_URL: http://metaflow:8080
+    depends_on:
+      - postgres
+      - mlflow
+      - metaflow
+
+  streamlit:
+    build: .
+    command: streamlit run dashboard.py
+    ports:
+      - "8501:8501"
+    environment:
+      FASTAPI_URL: http://fastapi:8000
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - fastapi
+
+volumes:
+  postgres_data:
