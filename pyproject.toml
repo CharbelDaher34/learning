@@ -1,0 +1,31 @@
+[project]
+name = "learning-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2.3",
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.1",
+    "streamlit>=1.44.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+etl = "etl.cli:app"
+train-gen = "models.train_lora_gen:main"
+train-cls = "models.train_lora_cls:main"
+api = "api.main:start"
+dashboard = "dashboard.app:start"
+monitor = "scripts.monitor_and_retrain:main"
+
+[tool.pytest]
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ["py38"] 

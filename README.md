@@ -1,154 +1,137 @@
-# AG News ML Pipeline
+# AG News LLM Project
 
-A complete end-to-end machine learning pipeline for processing and analyzing AG News dataset using LoRA fine-tuning, MLflow tracking, and real-time monitoring.
+This project implements a complete machine learning system for fine-tuning, deploying, and monitoring language models on the AG News dataset.
 
 ## Features
 
-- ETL pipeline using Metaflow for data processing
-- LoRA fine-tuning for both text generation and classification
-- MLflow experiment tracking and model registry
-- FastAPI backend for model serving
-- Streamlit dashboard for monitoring and administration
-- Docker-based deployment with docker-compose
-- Continuous monitoring with Evidently
+- **ETL Pipeline**: Downloads and processes the AG News dataset from Hugging Face
+- **Fine-tuning LLMs**: Fine-tunes a base Hugging Face model with two LoRA adapters:
+  - Text generation adapter
+  - News classification adapter
+- **Continual Learning**: Automatically retrains models when performance improves
+- **MLflow Integration**: Tracks models, experiments, and metrics
+- **FastAPI Backend**: Serves classification and generation endpoints
+- **Streamlit Dashboard**: Monitors model performance and allows for interactive testing
+- **Automatic Deployment**: Deploys new adapters when metrics exceed previous best
 
 ## Project Structure
 
 ```
-.
-├── app/
-│   ├── api/
-│   │   └── main.py          # FastAPI application
-│   ├── etl/
-│   │   └── data_pipeline.py # Metaflow ETL pipeline
-│   ├── models/
-│   │   └── train.py         # LoRA training code
-│   └── dashboard.py         # Streamlit dashboard
-├── tests/
-│   └── ...                  # Test files
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
+├── etl/              # Data processing pipeline
+├── models/           # Model training and inference
+├── api/              # FastAPI backend
+├── dashboard/        # Streamlit admin dashboard
+├── mlflow/           # MLflow tracking data
+├── scripts/          # Utility scripts
+├── pyproject.toml    # Project configuration
+└── README.md         # Project documentation
 ```
 
 ## Prerequisites
 
-- Python 3.10
-- Docker and Docker Compose
-- PostgreSQL
+- Python 3.8+
+- uv package manager
 - CUDA-compatible GPU (recommended for training)
 
 ## Setup
 
 1. Clone the repository:
 
-   ```bash
-   git clone <repository-url>
-   cd ag-news-pipeline
-   ```
+```bash
+git clone <repository-url>
+cd ag-news-llm-project
+```
 
 2. Create and activate a virtual environment:
 
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/Mac
-   # or
-   .\venv\Scripts\activate  # Windows
-   ```
+```bash
+uv init
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
 
 3. Install dependencies:
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+uv add fastapi uvicorn streamlit transformers bitsandbytes accelerate peft mlflow pydantic pandas scikit-learn typer datasets pytorch matplotlib seaborn plotly httpx
+uv add pytest black flake8 --dev
+```
 
-4. Set up environment variables:
-   ```bash
-   export DATABASE_URL="postgresql://mluser:mlpassword@localhost:5432/mlpipeline"
-   export MLFLOW_TRACKING_URI="http://localhost:5000"
-   export API_KEY="your-api-key-here"
-   ```
-
-## Running with Docker Compose
-
-1. Build and start the services:
-
-   ```bash
-   docker-compose up --build
-   ```
-
-2. Access the services:
-   - FastAPI Swagger UI: http://localhost:8000/docs
-   - Streamlit Dashboard: http://localhost:8501
-   - MLflow UI: http://localhost:5000
-
-## Running Components Individually
+## Usage
 
 ### ETL Pipeline
 
+Download and process the AG News dataset:
+
 ```bash
-python -m app.etl.data_pipeline.py
+uv run etl
 ```
 
-### Model Training
+### Training Models
+
+Train the classification LoRA adapter:
 
 ```bash
-python -m app.models.train
+uv run train-cls
 ```
 
-### FastAPI Backend
+Train the generation LoRA adapter:
 
 ```bash
-uvicorn app.api.main:app --reload
+uv run train-gen
 ```
 
-### Streamlit Dashboard
+### Running the API
+
+Start the FastAPI backend:
 
 ```bash
-streamlit run app/dashboard.py
+uv run api
+```
+
+The API will be available at http://localhost:8000, with interactive documentation at http://localhost:8000/docs.
+
+### Running the Dashboard
+
+Start the Streamlit dashboard:
+
+```bash
+uv run dashboard
+```
+
+The dashboard will be available at http://localhost:8501.
+
+### Monitoring and Retraining
+
+Manually trigger monitoring and potential retraining:
+
+```bash
+# For classification model
+uv run scripts.monitor_and_retrain --model_type classification
+
+# For generation model
+uv run scripts.monitor_and_retrain --model_type generation
+
+# Force retraining regardless of metrics
+uv run scripts.monitor_and_retrain --model_type classification --force_retrain
 ```
 
 ## API Endpoints
 
-### /infer
+- `POST /classify`: Classify news text into categories
+- `POST /generate`: Generate news text based on a prompt
 
-- POST request for model inference
-- Requires text input and task type (generation/classification)
-- Returns generated text or classification with confidence
+## Dashboard Features
 
-### /retrain
-
-- POST request to trigger model retraining
-- Requires API key authentication
-- Returns training status
-
-## Monitoring
-
-The Streamlit dashboard provides:
-
-- Model performance metrics
-- Data drift analysis
-- Model registry status
-- Interactive inference testing
-- Retraining triggers
-
-## Testing
-
-Run the test suite:
-
-```bash
-pytest
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+- **Monitor**: Track model metrics and performance over time
+- **Retrain**: Manually trigger model evaluation and retraining
+- **Test**: Interactive testing of deployed models
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the [MIT License](LICENSE).
+
+## Acknowledgements
+
+- The AG News dataset from Hugging Face Datasets
+- The transformers library by Hugging Face
+- PEFT (Parameter-Efficient Fine-Tuning) for LoRA adapters

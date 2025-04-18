@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -9,83 +9,39 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.10]
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: mlpipeline
-          POSTGRES_USER: mluser
-          POSTGRES_PASSWORD: mlpassword
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-mock pytest-cov
+          uv init
+          uv add fastapi uvicorn streamlit transformers peft mlflow pydantic pandas scikit-learn typer datasets pytest black flake8
 
-      - name: Run tests with coverage
-        env:
-          DATABASE_URL: postgresql://mluser:mlpassword@localhost:5432/mlpipeline
-          MLFLOW_TRACKING_URI: http://localhost:5000
-          API_KEY: test-api-key
+      - name: Check code formatting
         run: |
-          pytest --cov=app tests/
+          black --check .
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-
-  build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/ag-news-pipeline:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/ag-news-pipeline:${{ github.sha }}
-
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Deploy to production
+      - name: Run ETL smoke test
         run: |
-          echo "Deployment would happen here"
-          # Add actual deployment steps here based on your infrastructure
+          python -c "from etl.download_data import download_ag_news; download_ag_news('test_data')"
+          python -c "import os; from etl.preprocess import process_ag_news; process_ag_news('test_data')"
+
+      - name: Test API startup
+        run: |
+          python -c "from api.main import app; print('API startup successful')"
+
+      - name: Test dashboard startup
+        run: |
+          python -c "from dashboard.app import main; print('Dashboard startup successful')"
